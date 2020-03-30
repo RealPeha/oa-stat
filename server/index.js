@@ -33,6 +33,9 @@ const grabData = async () => {
 
     for (const [date, data] of Object.entries(dates)) {
         await StatModel.findOneAndUpdate({ date }, { data }, { upsert: true })
+            .catch(err => console.error(`[${date}]: error while grabbed data: ${err}`))
+        
+        console.log(`[${date}]: grabbed data successful`)
     }
 }
 
@@ -57,19 +60,17 @@ app.get('/stat', async (req, res) => {
     res.json(stats)
 })
 
+app.listen(3001, () => {
+    console.log("Listening at :3001...")
+})
+
 const run = async () => {
     await connect()
     
     await grabData()
-    console.log('first grab successful')
 
     job.start()
     job1.start()
-    console.log('auto grab launched')
-
-    app.listen(3001, () => {
-        console.log("Listening at :3001...")
-    })
 }
 
 run()
