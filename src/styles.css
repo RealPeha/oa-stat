@@ -1,0 +1,6 @@
+.chart-container,
+.chart-container > div,
+.chart-container > div > svg {
+    width: 100%;
+    height: 100%;
+}
