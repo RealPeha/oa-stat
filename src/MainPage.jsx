@@ -2,6 +2,9 @@ import React, { useState } from 'react'
 import Highcharts from 'highcharts'
 import HighchartsMap from 'highcharts/modules/map'
 import HighchartsReact from 'highcharts-react-official'
+import { DateRangePicker } from 'react-date-range'
+import 'react-date-range/dist/styles.css'
+import 'react-date-range/dist/theme/default.css'
 
 import useCallApi from './utils/useCallApi'
 
@@ -12,15 +15,41 @@ import './styles.css'
 HighchartsMap(Highcharts)
 
 const MainPage = () => {
-    const [date, setDate] = useState(new Date().toLocaleDateString('ru'))
-    const [data, statLoading] = useCallApi(`/stat?date=${date}`)
+    const [date, setDate] = useState([
+        new Date().toLocaleDateString('ru'),
+        new Date().toLocaleDateString('ru'),
+    ])
+    const [data, statLoading] = useCallApi(`/stat?startDate=${date[0]}&endDate=${date[1]}`)
 
-    const formattedData = data && data.data.map(({ time, players }) => {
-        return [
-            time,
-            players,
-        ]
-    })
+    let formattedData = []
+
+    if (data) {
+        for (const d of data) {
+            formattedData = [...formattedData, ...d.data.map(({ time, players }) => {
+                return [
+                    time,
+                    players,
+                ]
+            })]
+        }
+    }
+
+    const [state, setState] = useState([
+        {
+            startDate: new Date(),
+            endDate: null,
+            key: 'selection',
+        }
+    ]);
+
+    const handleSelectDate = ({ selection }) => {
+        setState([selection])
+
+        setDate([
+            new Date(selection.startDate).toLocaleDateString('ru'),
+            new Date(selection.endDate).toLocaleDateString('ru'),
+        ])
+    }
 
     const options = {
         mapNavigation: {
@@ -71,6 +100,10 @@ const MainPage = () => {
                 highcharts={Highcharts}
                 options={options}
                 containerProps={{ className: 'chart-container' }}
+            />
+            <DateRangePicker
+                ranges={state}
+                onChange={handleSelectDate}
             />
         </Loader>
     )

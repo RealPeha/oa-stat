@@ -17,11 +17,16 @@ export const GlobalStyle = createGlobalStyle`
     box-sizing: border-box;
   }
 
-  html, body, #root {
+  html, body {
     margin: 0;
     padding: 0;
     height: 100%;
     width: 100%;
     font-family: 'Segoe UI Light';
+  }
+
+  #root {
+    height: 75%;
+    width: 100%;
   }
 `

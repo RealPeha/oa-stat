@@ -3,7 +3,7 @@ const mongoose = require('mongoose')
 const { Schema, model } = mongoose
 
 const scheme = new Schema({
-	date: String,
+	date: Date,
 	data: [Object]
 }, {
 	versionKey: false,
