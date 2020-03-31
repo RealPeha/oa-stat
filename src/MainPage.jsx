@@ -57,11 +57,6 @@ const MainPage = () => {
                 radius: 2,
             },
             lineWidth: 2,
-            states: {
-                hover: {
-                    lineWidth: 2,
-                },
-            },
         },
         series: [{
             type: 'area',
@@ -69,7 +64,7 @@ const MainPage = () => {
             data: formattedData,
         }]
     }
-    
+
     return (
         <Loader isLoading={statLoading}>
             <HighchartsReact

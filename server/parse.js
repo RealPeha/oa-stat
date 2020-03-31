@@ -9,7 +9,13 @@ module.exports = async (url) => {
     const start = rawHTML.indexOf(first) + first.length
     const end = rawHTML.indexOf(second)
 
+    const statusStartPattern = '[<font color="green">'
+    const statusEndPattern = '</font>]</span>'
+    const statusStart = rawHTML.indexOf(statusStartPattern) + statusStartPattern.length
+    const statusEnd = rawHTML.indexOf(statusEndPattern)
+    const statusString = rawHTML.slice(statusStart, statusEnd)
+
     const statData = eval(rawHTML.slice(start, end))
-    
-    return statData
+
+    return [statData, statusString.trim() === 'Онлайн']
 }
