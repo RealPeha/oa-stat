@@ -1,7 +1,5 @@
-import React, { useState } from 'react'
-import Highcharts from 'highcharts'
-import HighchartsMap from 'highcharts/modules/map'
-import HighchartsReact from 'highcharts-react-official'
+import React, { useState, useRef, useEffect } from 'react'
+import * as d3 from 'd3'
 import { DateRangePicker } from 'react-date-range'
 import 'react-date-range/dist/styles.css'
 import 'react-date-range/dist/theme/default.css'
@@ -12,24 +10,36 @@ import Loader from './components/loader'
 
 import './styles.css'
 
-HighchartsMap(Highcharts)
+const dateFormatter = d3.timeFormat("%d.%m.%y %H:%M")
+const margin = { top: 30, right: 30, bottom: 20, left: 40 }
+const width = window.innerWidth - margin.left - margin.right
+const height = 600 - margin.top - margin.bottom
+const bisectDate = d3.bisector(d => d.date).left
+let offset = {
+    x: 0,
+    y: 0,
+    k: 1,
+}
 
 const MainPage = () => {
+    const d3Ref = useRef(null)
+
     const [date, setDate] = useState([
         new Date().toLocaleDateString('ru'),
         new Date().toLocaleDateString('ru'),
     ])
+    const [curve, setCurve] = useState(() => d3.curveLinear)
     const [data, statLoading] = useCallApi(`/stat?startDate=${date[0]}&endDate=${date[1]}`)
 
     let formattedData = []
-
+    console.log(data)
     if (data) {
         for (const d of data) {
             formattedData = [...formattedData, ...d.data.map(({ time, players }) => {
-                return [
-                    time,
-                    players,
-                ]
+                return {
+                    date: time,
+                    value: players,
+                }
             })]
         }
     }
@@ -51,60 +61,141 @@ const MainPage = () => {
         ])
     }
 
-    const options = {
-        mapNavigation: {
-            enableMouseWheelZoom: true,
-        },
-        title: {
-          text: 'Ocean of Anarchy'
-        },
-        chart: {
-            type: 'spline',
-            zoomType: 'x',
-        },
-        legend: {
-            enabled: false,
-        },
-        xAxis: {
-            type: 'datetime',
-        },
-        yAxis: {
-            title: {
-                text: '',
-            },
-        },
-        plotLines: [{
-            value: 0,
-            width: 1,
-            color: 'tomato',
-        }],
-        plotOptions: {
-            area: {
-                lineColor: 'blue',
-            },
-            marker: {
-                radius: 2,
-            },
-            lineWidth: 2,
-        },
-        series: [{
-            type: 'area',
-            name: 'Игроков онлайн',
-            data: formattedData,
-        }]
+    const drawChart = (data) => {
+        console.log(data.length)
+        const x = d3.scaleTime()
+            .range([0, data.length * 2 > width ? data.length * 2 : width])
+            .domain(d3.extent(data, d => d.date))
+
+        const y = d3.scaleLinear()
+            .range([height, 0])
+            .domain([0, d3.max(data, d => d.value)])
+
+        const xAxis = d3.axisBottom(x)
+        const yAxis = d3.axisLeft(y)
+
+        const zoomed = () => {
+            offset = d3.event.transform
+
+            svg.selectAll('.charts').attr('transform', d3.event.transform)
+            d3.selectAll('.line').style('stroke-width', 2 / d3.event.transform.k)
+
+            gX.call(xAxis.scale(d3.event.transform.rescaleX(x)))
+            gY.call(yAxis.scale(d3.event.transform.rescaleY(y)))
+        }
+
+        const zoom = d3.zoom()
+            .scaleExtent([0.1, 10])
+            .extent([[100, 100], [width-100, height-100]])
+            .on('zoom', zoomed)
+
+        const svg = d3.select(d3Ref.current).html('')
+            .append('svg')
+                .attr('width', width + margin.left + margin.right)
+                .attr('height', height + margin.top + margin.bottom)
+                .call(zoom)
+                .append('g')
+                    .attr('transform', `translate(${margin.left}, ${margin.top})`)
+
+        const gX = svg.append('g')
+            .attr('transform', 'translate(0,' + height + ')')
+            .call(xAxis)
+
+        const gY = svg.append('g')
+            .call(yAxis)
+
+        const lineGenerator = d3.line()
+            .x(d => x(d.date))
+            .y(d => y(d.value))
+            .curve(curve)
+
+        svg.append('g')
+            .attr('class', 'charts')
+            .append('path')
+                .datum(data)
+                .attr('class', 'line')
+                .attr('fill', 'none')
+                .attr('stroke', 'steelblue')
+                .attr('stroke-width', 1.5)
+                .attr('d', d => lineGenerator(d))
+
+        const focus = svg.append('g')
+            .attr('class', 'focus')
+            .style('display', 'none')
+
+        focus.append('circle')
+            .attr('r', 5)
+
+        focus.append('rect')
+            .attr('class', 'tooltip')
+            .attr('width', 100)
+            .attr('height', 50)
+            .attr('x', 10)
+            .attr('y', -22)
+            .attr('rx', 4)
+            .attr('ry', 4)
+
+        focus.append('text')
+            .attr('class', 'tooltip-date')
+            .attr('x', 18)
+            .attr('y', -2)
+
+        focus.append('text')
+            .attr('x', 18)
+            .attr('y', 18)
+            .text('Игроков:')
+
+        focus.append('text')
+            .attr('class', 'tooltip-likes')
+            .attr('x', 80)
+            .attr('y', 18)
+
+        function mousemove() {
+            const x0 = x.invert((d3.mouse(this)[0] - offset.x) / offset.k)
+            const i = bisectDate(data, x0, 1)
+            const d0 = data[i - 1]
+            const d1 = data[i]
+
+            if (!d0 || !d1) {
+                return
+            }
+
+            const d = x0 - d0.date > d1.date - x0 ? d1 : d0
+
+            focus.attr('transform', `translate(${x(d.date) * offset.k + offset.x}, ${y(d.value) * offset.k + offset.y})`)
+            focus.select(".tooltip-date").text(dateFormatter(d.date))
+            focus.select('.tooltip-likes').text(d.value)
+        }
+
+        svg.append('rect')
+            .attr('class', 'overlay')
+            .attr('width', width)
+            .attr('height', height)
+            .on('mouseover', () => focus.style('display', null))
+            .on('mouseout', () => focus.style('display', 'none'))
+            .on('mousemove', mousemove)
     }
+
+    const selectCurve = (curve) => () => {
+        setCurve(curve)
+    }
+
+    useEffect(() => {
+        if (statLoading === false) {
+            drawChart(formattedData)
+        }
+    }, [formattedData, statLoading])
 
     return (
         <Loader isLoading={statLoading}>
-            <HighchartsReact
-                highcharts={Highcharts}
-                options={options}
-                containerProps={{ className: 'chart-container' }}
-            />
+            <div ref={d3Ref} />
             <DateRangePicker
                 ranges={state}
                 onChange={handleSelectDate}
             />
+            <button onClick={selectCurve(() => d3.curveStep)}>curveStep</button>
+            <button onClick={selectCurve(() => d3.curveBasis)}>curveBasis</button>
+            <button onClick={selectCurve(() => d3.curveLinear)}>curveLinear</button>
         </Loader>
     )
 }

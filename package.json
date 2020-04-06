@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "d3": "^5.15.1",
     "date-fns": "^2.11.1",
     "dotenv": "^8.2.0",
     "highcharts": "^8.0.4",
