@@ -23,10 +23,13 @@ export const GlobalStyle = createGlobalStyle`
     height: 100%;
     width: 100%;
     font-family: 'Segoe UI Light';
+    background-color: rgb(39, 44, 51);
+    color: white;
+    overflow: hidden;
   }
 
   #root {
-    height: 75%;
+    height: 100%;
     width: 100%;
   }
 `

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-export const api = 'http://localhost:3001'
+export const api = 'http://oa.peha.fun:3001'
 
 const useCallApi = (url, method = 'GET') => {
     const [data, setData] = useState(null)

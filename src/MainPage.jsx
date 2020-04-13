@@ -1,19 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react'
 import * as d3 from 'd3'
-import { DateRangePicker } from 'react-date-range'
 import 'react-date-range/dist/styles.css'
 import 'react-date-range/dist/theme/default.css'
 
 import useCallApi from './utils/useCallApi'
 
 import Loader from './components/loader'
+import Datepicker from './components/datepicker'
 
 import './styles.css'
 
 const dateFormatter = d3.timeFormat("%d.%m.%y %H:%M")
-const margin = { top: 30, right: 30, bottom: 20, left: 40 }
-const width = window.innerWidth - margin.left - margin.right
-const height = 600 - margin.top - margin.bottom
+const margin = { top: 50, right: 30, bottom: 50, left: 40 }
 const bisectDate = d3.bisector(d => d.date).left
 let offset = {
     x: 0,
@@ -28,19 +26,19 @@ const MainPage = () => {
         new Date().toLocaleDateString('ru'),
         new Date().toLocaleDateString('ru'),
     ])
-    const [curve, setCurve] = useState(() => d3.curveLinear)
     const [data, statLoading] = useCallApi(`/stat?startDate=${date[0]}&endDate=${date[1]}`)
 
     let formattedData = []
-    console.log(data)
+
     if (data) {
         for (const d of data) {
-            formattedData = [...formattedData, ...d.data.map(({ time, players }) => {
-                return {
+            formattedData = [
+                ...formattedData,
+                ...d.data.map(({ time, players }) => ({
                     date: time,
                     value: players,
-                }
-            })]
+                }))
+            ]
         }
     }
 
@@ -61,8 +59,10 @@ const MainPage = () => {
         ])
     }
 
-    const drawChart = (data) => {
-        console.log(data.length)
+    const drawChart = data => {
+        const width = d3Ref.current.clientWidth - margin.left - margin.right
+        const height = d3Ref.current.clientHeight - margin.top - margin.bottom
+
         const x = d3.scaleTime()
             .range([0, data.length * 2 > width ? data.length * 2 : width])
             .domain(d3.extent(data, d => d.date))
@@ -79,9 +79,18 @@ const MainPage = () => {
 
             svg.selectAll('.charts').attr('transform', d3.event.transform)
             d3.selectAll('.line').style('stroke-width', 2 / d3.event.transform.k)
-
             gX.call(xAxis.scale(d3.event.transform.rescaleX(x)))
             gY.call(yAxis.scale(d3.event.transform.rescaleY(y)))
+
+
+            d3.selectAll('.grid')
+                .call(
+                    d3.axisLeft(y)
+                        .scale(d3.event.transform.rescaleY(y).interpolate(d3.interpolateRound))
+                        .ticks(5)
+                        .tickSize(-width)
+                        .tickFormat("")
+                )
         }
 
         const zoom = d3.zoom()
@@ -97,17 +106,14 @@ const MainPage = () => {
                 .append('g')
                     .attr('transform', `translate(${margin.left}, ${margin.top})`)
 
-        const gX = svg.append('g')
-            .attr('transform', 'translate(0,' + height + ')')
-            .call(xAxis)
-
-        const gY = svg.append('g')
-            .call(yAxis)
-
-        const lineGenerator = d3.line()
-            .x(d => x(d.date))
-            .y(d => y(d.value))
-            .curve(curve)
+        svg.append('g')
+            .attr('class', 'grid')
+            .call(
+                d3.axisLeft(y)
+                    .ticks(5)
+                    .tickSize(-width)
+                    .tickFormat("")
+            )
 
         svg.append('g')
             .attr('class', 'charts')
@@ -115,9 +121,21 @@ const MainPage = () => {
                 .datum(data)
                 .attr('class', 'line')
                 .attr('fill', 'none')
-                .attr('stroke', 'steelblue')
-                .attr('stroke-width', 1.5)
-                .attr('d', d => lineGenerator(d))
+                .attr('stroke', 'rgb(255, 127, 106)')
+                .attr('stroke-width', 3)
+                .attr('d', d3.area()
+                    .x(d => x(d.date))
+                    .y0(y(0))
+                    .y1(d => y(d.value))
+                    .curve(d3.curveLinear)
+                )
+
+        const gX = svg.append('g')
+            .attr('transform', 'translate(0,' + height + ')')
+            .call(xAxis)
+
+        const gY = svg.append('g')
+            .call(yAxis)
 
         const focus = svg.append('g')
             .attr('class', 'focus')
@@ -176,10 +194,6 @@ const MainPage = () => {
             .on('mousemove', mousemove)
     }
 
-    const selectCurve = (curve) => () => {
-        setCurve(curve)
-    }
-
     useEffect(() => {
         if (statLoading === false) {
             drawChart(formattedData)
@@ -188,14 +202,15 @@ const MainPage = () => {
 
     return (
         <Loader isLoading={statLoading}>
-            <div ref={d3Ref} />
-            <DateRangePicker
-                ranges={state}
-                onChange={handleSelectDate}
-            />
-            <button onClick={selectCurve(() => d3.curveStep)}>curveStep</button>
-            <button onClick={selectCurve(() => d3.curveBasis)}>curveBasis</button>
-            <button onClick={selectCurve(() => d3.curveLinear)}>curveLinear</button>
+            <div className='wrapper'>
+                <div className='title'>Ocean Of Anarchy</div>
+                <div className='ip'>94.23.204.159:25618</div>
+                <Datepicker
+                    ranges={state}
+                    onSelect={handleSelectDate}
+                />
+                <div className='svg-container' ref={d3Ref} />
+            </div>
         </Loader>
     )
 }
